@@ -36,6 +36,9 @@ h1 { font-size: 1.5rem; } h2 { font-size: 1.15rem; } h3 { font-size: 1rem; }
 .btn:disabled { opacity: .5; cursor: default; }
 input, select { width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; min-height: 42px; }
 input.num { font-family: var(--f-num); }
+textarea { width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; resize: vertical; min-height: 70px; }
+textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+textarea:disabled, input:disabled { opacity: .85; }
 input:focus, select:focus, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 label { display: block; font-size: .76rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 4px; }
 label.inl { display: inline; margin: 0; }
@@ -138,3 +141,17 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
 .kpi.click { cursor: pointer; }
 table.wide { min-width: 1080px; }
 table.wide td:nth-child(3) { min-width: 220px; }
+
+/* Planos y características */
+.planos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.plano { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
+.plano .prev { aspect-ratio: 4 / 3; background: var(--surface); display: grid; place-items: center; overflow: hidden; border-bottom: 1px solid var(--line); }
+.plano .prev img { width: 100%; height: 100%; object-fit: cover; }
+.plano .prev .pdf { font: 700 1.4rem var(--f-display); color: var(--muted); }
+.plano .info { padding: 10px 12px; display: grid; gap: 6px; flex: 1; }
+.plano .info b { font-family: var(--f-display); }
+.plano .row { margin-top: auto; }
+#t-lotes input { min-height: 32px; padding: 4px 8px; font-size: .88rem; }
+#t-lotes input.n { width: 100px; text-align: right; font-family: var(--f-num); }
+#t-lotes td { vertical-align: middle; }
+#t-lotes input.guardado { outline: 2px solid var(--ok); }

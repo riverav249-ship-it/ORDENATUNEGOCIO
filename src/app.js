@@ -30,6 +30,7 @@
     if (data) Object.assign(L, data);
     aplicarLotif();
     if (puede('admin')) pintarAjustes();
+    if (S.perfil && S.perfil.rol !== 'pendiente') pintarCaract();
   }
   function pintarAjustes() {
     if (document.activeElement && document.activeElement.closest('#f-ajustes')) return;
@@ -113,7 +114,7 @@
   }
   let timer = null;
   function suscribir() {
-    sb.channel('cambios').on('postgres_changes', { event: '*', schema: 'public' }, () => { clearTimeout(timer); timer = setTimeout(cargar, 400); }).subscribe();
+    sb.channel('cambios').on('postgres_changes', { event: '*', schema: 'public' }, ev => { if (ev.table === 'planos') { pintarPlanos(); return; } clearTimeout(timer); timer = setTimeout(cargar, 400); }).subscribe();
   }
 
   // ---------- datos derivados
@@ -140,7 +141,7 @@
     return `<span class="chip ${cls}">${esc(s)}</span>`;
   }
 
-  function pintarTodo() { pintarAlertas(); pintarKpis(); pintarMapa(); pintarContratos(); pintarVentas(); pintarCobros(); pintarFormVenta(); if (puede('admin')) pintarUsuarios(); if (S.sel) panelLote(S.sel); }
+  function pintarTodo() { pintarAlertas(); pintarKpis(); pintarMapa(); pintarContratos(); pintarVentas(); pintarCobros(); pintarFormVenta(); if (puede('admin')) pintarUsuarios(); pintarLotificacion(); if (S.sel) panelLote(S.sel); }
 
   function pintarKpis() {
     const libres = S.lotes.filter(l => estadoLote(l) === 'free').length;
@@ -676,6 +677,132 @@
       toast(m.includes('ventas_un_lote_vigente') ? 'Ese lote ya tiene una venta o reserva registrada.' : m.includes('ventas_contrato_key') ? 'Ese número de contrato ya existe.' : 'No se pudo guardar: ' + m);
     } finally { $('v-guardar').disabled = false; }
   });
+
+  // ---------- lotificación: características, planos y datos de cada lote
+  const CARACT = { 'ca-descripcion': 'descripcion', 'ca-area': 'area_total', 'ca-acceso': 'acceso', 'ca-servicios': 'servicios', 'ca-notas': 'notas' };
+  function pintarCaract() {
+    if (document.activeElement && document.activeElement.closest('#f-caract')) return;
+    Object.entries(CARACT).forEach(([id, k]) => { $(id).value = L[k] || ''; $(id).disabled = !puede('admin'); });
+  }
+  $('f-caract').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!puede('admin')) return;
+    const cambios = {}; Object.entries(CARACT).forEach(([id, k]) => cambios[k] = $(id).value.trim());
+    $('ca-guardar').disabled = true;
+    const { error } = await sb.from('ajustes').update({ ...cambios, actualizado: new Date().toISOString() }).eq('id', 1);
+    $('ca-guardar').disabled = false;
+    if (error) return toast('No se pudo guardar: ' + error.message);
+    Object.assign(L, cambios); toast('Características guardadas');
+  });
+
+  const tamTxt = b => !b ? '' : b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB';
+  const urlCache = {};
+  async function urlPlano(ruta) {
+    const c = urlCache[ruta]; if (c && c.vence > Date.now()) return c.url;
+    const { data, error } = await sb.storage.from('planos').createSignedUrl(ruta, 3600);
+    if (error) throw error;
+    urlCache[ruta] = { url: data.signedUrl, vence: Date.now() + 50 * 60000 };
+    return data.signedUrl;
+  }
+  async function pintarPlanos() {
+    const { data, error } = await sb.from('planos').select('*').order('principal', { ascending: false }).order('creado', { ascending: false });
+    if (error) { $('planos').innerHTML = `<p class="err">No se pudieron cargar los planos: ${esc(error.message)}</p>`; return; }
+    if (!data.length) { $('planos').innerHTML = `<p class="muted">Todavía no hay planos.${puede('admin') ? ' Suba el primero con el formulario de arriba.' : ''}</p>`; return; }
+    $('planos').innerHTML = data.map(p => `<div class="plano">
+        <div class="prev" data-plano-prev="${esc(p.ruta)}">${(p.tipo || '').startsWith('image/') ? '' : '<span class="pdf">PDF</span>'}</div>
+        <div class="info">
+          <b>${esc(p.titulo)}</b>${p.principal ? ' <span class="chip ok">Principal</span>' : ''}
+          ${p.descripcion ? `<span class="muted">${esc(p.descripcion)}</span>` : ''}
+          <span class="hint">${esc(p.nombre_archivo || '')} · ${tamTxt(p.tamano)} · ${fd(p.creado)}</span>
+          <div class="row">
+            <button class="btn sm" type="button" data-plano-ver="${esc(p.ruta)}">Abrir</button>
+            ${puede('admin') ? `${p.principal ? '' : `<button class="btn ghost sm" type="button" data-plano-principal="${p.id}">Marcar principal</button>`}<button class="btn danger sm" type="button" data-plano-borrar="${p.id}">Eliminar</button>` : ''}
+          </div>
+        </div></div>`).join('');
+    data.filter(p => (p.tipo || '').startsWith('image/')).forEach(async p => {
+      try { const u = await urlPlano(p.ruta); const box = document.querySelector(`[data-plano-prev="${CSS.escape(p.ruta)}"]`); if (box) box.innerHTML = `<img src="${esc(u)}" alt="${esc(p.titulo)}" loading="lazy">`; } catch (_) {}
+    });
+    S.planos = data;
+  }
+  $('f-plano').addEventListener('submit', async e => {
+    e.preventDefault();
+    const f = $('pl-archivo').files[0];
+    if (!f) return toast('Elija el archivo del plano.');
+    if (f.size > 26214400) return toast('El archivo pasa de 25 MB.');
+    if (!/^(application\/pdf|image\/(png|jpeg|webp))$/.test(f.type)) return toast('Solo PDF, JPG, PNG o WEBP.');
+    const titulo = $('pl-titulo').value.trim() || f.name.replace(/\.[^.]+$/, '');
+    const ext = (f.name.match(/\.[a-z0-9]+$/i) || [''])[0].toLowerCase();
+    const ruta = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+    $('pl-subir').disabled = true; $('pl-subir').textContent = 'Subiendo…';
+    try {
+      const { error: e1 } = await sb.storage.from('planos').upload(ruta, f, { contentType: f.type, upsert: false });
+      if (e1) throw e1;
+      const primero = !(S.planos && S.planos.length);
+      const { error: e2 } = await sb.from('planos').insert({ titulo, descripcion: $('pl-desc').value.trim() || null, ruta, nombre_archivo: f.name, tipo: f.type, tamano: f.size, principal: primero });
+      if (e2) { await sb.storage.from('planos').remove([ruta]); throw e2; }
+      $('f-plano').reset(); toast('Plano subido'); pintarPlanos();
+    } catch (err) { toast('No se pudo subir: ' + (err.message || err)); }
+    finally { $('pl-subir').disabled = false; $('pl-subir').textContent = 'Subir plano'; }
+  });
+  document.addEventListener('click', async e => {
+    const ver = e.target.closest('[data-plano-ver]');
+    if (ver) {
+      const w = window.open('', '_blank');
+      try { const u = await urlPlano(ver.dataset.planoVer); if (w) w.location = u; else location.href = u; }
+      catch (err) { if (w) w.close(); toast('No se pudo abrir: ' + (err.message || err)); }
+      return;
+    }
+    const pri = e.target.closest('[data-plano-principal]');
+    if (pri && puede('admin')) {
+      await sb.from('planos').update({ principal: false }).eq('principal', true);
+      const { error } = await sb.from('planos').update({ principal: true }).eq('id', +pri.dataset.planoPrincipal);
+      toast(error ? 'No se pudo cambiar: ' + error.message : 'Plano principal actualizado'); pintarPlanos(); return;
+    }
+    const bor = e.target.closest('[data-plano-borrar]');
+    if (bor && puede('admin')) {
+      const p = (S.planos || []).find(x => x.id === +bor.dataset.planoBorrar); if (!p) return;
+      if (!confirm(`¿Eliminar el plano "${p.titulo}"? El archivo se borra y no se puede recuperar.`)) return;
+      const { error: e1 } = await sb.storage.from('planos').remove([p.ruta]);
+      if (e1) return toast('No se pudo borrar el archivo: ' + e1.message);
+      const { error: e2 } = await sb.from('planos').delete().eq('id', p.id);
+      toast(e2 ? 'No se pudo borrar: ' + e2.message : 'Plano eliminado'); pintarPlanos();
+    }
+  });
+
+  const CAMPOS_LOTE = [['area_m2', 'Área m²', 'n'], ['area_v2', 'Área v²', 'n'], ['precio_lista', 'Precio de lista', 'n'], ['caracteristicas', 'Características'], ['observaciones', 'Observaciones']];
+  function pintarTablaLotes() {
+    if (document.activeElement && document.activeElement.closest('#t-lotes')) return;
+    const q = ($('lt-buscar').value || '').trim().toLowerCase(), adm = puede('admin');
+    const filas = S.lotes.filter(l => !q || [l.codigo, l.caracteristicas, l.observaciones].some(x => String(x || '').toLowerCase().includes(q)));
+    const celda = (l, [k, , t]) => adm
+      ? `<td${t ? ' class="n"' : ''}><input data-lote-campo="${k}" data-lote="${esc(l.codigo)}" ${t ? 'class="n" inputmode="decimal"' : ''} value="${esc(l[k] ?? '')}"></td>`
+      : `<td${t ? ' class="n"' : ''}>${k === 'precio_lista' ? money(l[k]) : esc(l[k] ?? '—')}</td>`;
+    $('t-lotes').innerHTML = `<thead><tr><th>Lote</th>${CAMPOS_LOTE.map(([, t, n]) => `<th${n ? ' class="n"' : ''}>${t}</th>`).join('')}<th>A la venta</th></tr></thead><tbody>` +
+      filas.map(l => `<tr><td><b>${esc(l.codigo)}</b></td>${CAMPOS_LOTE.map(c => celda(l, c)).join('')}<td>${adm ? `<input type="checkbox" data-lote-venta="${esc(l.codigo)}" style="width:auto;min-height:0"${l.a_la_venta ? ' checked' : ''}${ventaVigente(l.codigo) ? ' disabled title="Tiene venta o reserva"' : ''}>` : (l.a_la_venta ? 'Sí' : 'No')}</td></tr>`).join('') + '</tbody>';
+  }
+  $('lt-buscar').addEventListener('input', pintarTablaLotes);
+  $('t-lotes').addEventListener('change', async e => {
+    const inp = e.target; if (!puede('admin')) return;
+    let code, cambio;
+    if (inp.dataset.loteVenta) { code = inp.dataset.loteVenta; cambio = { a_la_venta: inp.checked }; }
+    else if (inp.dataset.loteCampo) {
+      code = inp.dataset.lote; const k = inp.dataset.loteCampo, num_ = CAMPOS_LOTE.find(c => c[0] === k)[2];
+      let v = inp.value.trim();
+      if (num_) { if (v === '') v = null; else { v = num(v); if (!isFinite(v)) { toast('Escriba un número válido.'); return; } } } else v = v || null;
+      cambio = { [k]: v };
+    } else return;
+    const { error } = await sb.from('lotes').update(cambio).eq('codigo', code);
+    if (error) { toast('No se pudo guardar el lote ' + code + ': ' + error.message); return; }
+    const l = lote(code); if (l) Object.assign(l, cambio);
+    inp.classList.add('guardado'); setTimeout(() => inp.classList.remove('guardado'), 900);
+    toast(`Lote ${code} actualizado`);
+  });
+
+  let planosPintados = false;
+  function pintarLotificacion() {
+    pintarCaract(); pintarTablaLotes();
+    if (!planosPintados) { planosPintados = true; pintarPlanos(); }
+  }
 
   // ---------- usuarios
   async function pintarUsuarios() {

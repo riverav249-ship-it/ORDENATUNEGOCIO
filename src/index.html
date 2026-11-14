@@ -45,6 +45,7 @@
       <button data-tab="contratos">Contratos</button>
       <button data-tab="cobros">Cobros</button>
       <button data-tab="nueva" data-roles="admin,ventas">Nueva venta</button>
+      <button data-tab="lotificacion">Lotificación</button>
       <button data-tab="usuarios" data-roles="admin">Usuarios</button>
     </nav>
     <div class="who"><span id="who"></span><button class="btn ghost sm" type="button" data-act="salir">Salir</button></div>
@@ -64,6 +65,7 @@
             <span style="--c:var(--lot-sold)">Vendido</span>
             <span style="--c:var(--lot-na)">No está a la venta</span>
           </div>
+          <p class="hint" style="margin-top:8px"><button class="btn ghost sm" type="button" data-tab="lotificacion">Ver planos y características</button></p>
         </div>
         <div class="card" id="panel-lote"><p class="muted">Toque un lote del mapa.</p></div>
       </div>
@@ -154,6 +156,45 @@
         <div class="sumbox" id="v-resumen"></div>
         <button class="btn" type="submit" id="v-guardar">Guardar venta</button>
       </form>
+    </section>
+
+    <!-- LOTIFICACIÓN: planos y características -->
+    <section data-view="lotificacion" hidden>
+      <div class="card">
+        <h2>Características de la lotificación</h2>
+        <p class="muted" data-roles="admin">Esta información la ven todos los usuarios. Solo el administrador la puede cambiar.</p>
+        <form id="f-caract" autocomplete="off">
+          <div class="fields">
+            <div class="full"><label for="ca-descripcion">Descripción general</label><textarea id="ca-descripcion" rows="3" placeholder="Proyecto residencial de 66 lotes, a 5 minutos del centro…"></textarea></div>
+            <div><label for="ca-area">Área total</label><input id="ca-area" placeholder="3.5 manzanas / 24,500 m²"></div>
+            <div><label for="ca-acceso">Acceso y ubicación</label><input id="ca-acceso" placeholder="Calle pavimentada, km 54 carretera…"></div>
+            <div class="full"><label for="ca-servicios">Servicios y amenidades</label><textarea id="ca-servicios" rows="3" placeholder="Agua potable, energía eléctrica, calles adoquinadas, área verde, portón con vigilancia…"></textarea></div>
+            <div class="full"><label for="ca-notas">Notas legales y condiciones</label><textarea id="ca-notas" rows="3" placeholder="Escritura inscrita en CNR, permisos de OPAMSS, condiciones de financiamiento…"></textarea></div>
+          </div>
+          <button class="btn" type="submit" id="ca-guardar" data-roles="admin">Guardar características</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Planos y documentos</h2>
+        <form id="f-plano" class="toolbar" data-roles="admin" autocomplete="off">
+          <input id="pl-archivo" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" style="flex:1 1 220px">
+          <input id="pl-titulo" placeholder="Título (ej. Plano general, Plano topográfico)" style="flex:1 1 220px">
+          <input id="pl-desc" placeholder="Descripción (opcional)" style="flex:1 1 220px">
+          <button class="btn sm" type="submit" id="pl-subir">Subir plano</button>
+        </form>
+        <p class="hint" data-roles="admin">PDF, JPG, PNG o WEBP, hasta 25 MB. Los archivos quedan privados: solo los ven los usuarios con acceso.</p>
+        <div id="planos" class="planos"></div>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <h2 style="margin:0;flex:1">Lotes y sus características</h2>
+          <input id="lt-buscar" type="search" placeholder="Buscar lote o característica" style="flex:0 1 260px">
+        </div>
+        <p class="hint" data-roles="admin">Los cambios se guardan al salir de cada casilla. El dibujo del mapa no cambia con estos datos.</p>
+        <div class="tablewrap"><table id="t-lotes"></table></div>
+      </div>
     </section>
 
     <!-- USUARIOS -->
