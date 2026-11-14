@@ -1,14 +1,12 @@
-# Ordena tu Negocio · Lotificaciones
+# Sistema de control de lotificación
 
-Sistema web para lotificadoras: mapa de lotes a colores, alertas de clientes atrasados con recordatorio por WhatsApp, registro de pagos con recibo automático (separa intereses y capital) y reporte de ventas descargable en Excel.
+Lotes, ventas, reservas, cuotas, recibos y alertas de cobro. Basado en el paquete `sistema-lotificacion.zip` (sistema de Lotificación San Marcos).
 
-- **Frontend:** React + Vite (carpeta `src/`)
-- **Base de datos y login:** Supabase (proyecto `ordenatunegocio-lotes`)
-- **Publicación:** Vercel
+- `src/`: la aplicación web (sitio estático, sin build). Vercel publica esta carpeta.
+- `supabase/`: esquema de la base de datos, catálogo de lotes y script del primer administrador.
+- `PROMPT.md`: instrucciones originales del paquete.
 
-## Desarrollo local
-```bash
-npm install
-npm run dev
-```
-Variables (opcionales, ya tienen valor por defecto): ver `.env.example`.
+## Cambios respecto al paquete original
+- `src/config.js`: conexión al proyecto de Supabase `ordenatunegocio-lotes`.
+- Nombre, nombre corto, ubicación y teléfono de la lotificación ya no están fijos en el código: se guardan en la tabla `ajustes` y el administrador los cambia en la pestaña **Usuarios › Datos de la lotificación**. Archivos tocados: `src/index.html`, `src/app.js`, `src/excel.js`.
+- Base de datos: se agregó la tabla `ajustes` (lectura pública, edición solo admin).

@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Control de lotes</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="login" class="login" hidden>
+  <form id="login-form" class="card loginbox">
+    <h1 id="lt-nombre">Mi Lotificación</h1>
+    <p class="muted" id="login-sub">Control de lotes, ventas y cobros</p>
+    <div id="reg-nombre-w" hidden><label for="reg-nombre">Su nombre</label><input id="reg-nombre" autocomplete="name"></div>
+    <label for="email">Correo</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="pass">Contraseña</label>
+    <input id="pass" type="password" autocomplete="current-password" required>
+    <button class="btn" type="submit" id="login-btn">Entrar</button>
+    <p class="err" id="login-err" hidden></p>
+    <p id="login-ok" hidden></p>
+    <button class="btn ghost" type="button" id="login-modo">Crear cuenta nueva</button>
+  </form>
+</div>
+
+<div id="pendiente" class="login" hidden>
+  <div class="card loginbox">
+    <h1>Cuenta sin permiso</h1>
+    <p>Su usuario existe, pero el administrador todavía no le ha dado un rol. Pídale que le asigne uno.</p>
+    <button class="btn ghost" type="button" data-act="salir">Salir</button>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header class="top">
+    <div class="brand"><strong id="lt-corto">Mi Lotificación</strong><span class="muted" id="lt-ubic"></span></div>
+    <nav class="tabs" id="tabs">
+      <button data-tab="mapa" class="on">Mapa</button>
+      <button data-tab="alertas">Alertas <span class="badge" id="badge-al" hidden></span></button>
+      <button data-tab="ventas">Ventas</button>
+      <button data-tab="contratos">Contratos</button>
+      <button data-tab="cobros">Cobros</button>
+      <button data-tab="nueva" data-roles="admin,ventas">Nueva venta</button>
+      <button data-tab="usuarios" data-roles="admin">Usuarios</button>
+    </nav>
+    <div class="who"><span id="who"></span><button class="btn ghost sm" type="button" data-act="salir">Salir</button></div>
+  </header>
+
+  <main class="wrap">
+    <section class="kpis" id="kpis"></section>
+
+    <!-- MAPA -->
+    <section data-view="mapa">
+      <div class="grid2">
+        <div class="card">
+          <div class="mapwrap"><svg id="mapa" viewBox="80 40 1040 1380" role="img" aria-label="Mapa de lotes"></svg></div>
+          <div class="legend">
+            <span style="--c:var(--lot-free)">Disponible</span>
+            <span style="--c:var(--lot-res)">Reservado</span>
+            <span style="--c:var(--lot-sold)">Vendido</span>
+            <span style="--c:var(--lot-na)">No está a la venta</span>
+          </div>
+        </div>
+        <div class="card" id="panel-lote"><p class="muted">Toque un lote del mapa.</p></div>
+      </div>
+    </section>
+
+    <!-- CONTRATOS -->
+    <section data-view="alertas" hidden>
+      <div class="card">
+        <div class="toolbar">
+          <h2 style="margin:0;flex:1">Alertas de cobro</h2>
+          <label for="al-dias" class="inl">Próximos</label>
+          <select id="al-dias"><option value="3">3 días</option><option value="7" selected>7 días</option><option value="15">15 días</option></select>
+        </div>
+        <div id="alertas"></div>
+      </div>
+    </section>
+
+    <section data-view="ventas" hidden>
+      <div class="card">
+        <div class="toolbar">
+          <h2 style="margin:0;flex:1 1 200px">Lotes vendidos</h2>
+          <label for="vt-desde" class="inl">Desde</label><input id="vt-desde" type="date" style="width:auto">
+          <label for="vt-hasta" class="inl">Hasta</label><input id="vt-hasta" type="date" style="width:auto">
+          <button class="btn ghost sm" type="button" id="vt-limpiar">Todo</button>
+          <button class="btn ghost sm" type="button" id="vt-csv">Descargar Excel</button>
+          <button class="btn sm" type="button" id="vt-control" data-roles="admin,ventas,cobros" title="El libro de control completo, con todos los datos de hoy">Excel de control</button>
+        </div>
+        <div id="ventas"></div>
+      </div>
+    </section>
+
+    <section data-view="contratos" hidden>
+      <div class="card">
+        <div class="toolbar">
+          <input id="buscar" type="search" placeholder="Buscar por cliente, lote o contrato">
+          <select id="filtro">
+            <option value="">Todos</option>
+            <option value="credito">Crédito activos</option>
+            <option value="atrasados">Atrasados</option>
+            <option value="pagados">Pagados</option>
+            <option value="reservados">Reservados</option>
+          </select>
+        </div>
+        <div class="tablewrap"><table id="t-contratos"></table></div>
+      </div>
+    </section>
+
+    <!-- COBROS -->
+    <section data-view="cobros" hidden>
+      <div class="card">
+        <div class="toolbar">
+          <label for="mes" class="inl">Mes</label><input id="mes" type="month">
+        </div>
+        <div id="cobros"></div>
+      </div>
+    </section>
+
+    <!-- NUEVA VENTA -->
+    <section data-view="nueva" hidden>
+      <form class="card" id="f-venta" autocomplete="off">
+        <h2 id="v-titulo">Registrar venta</h2>
+        <div class="fields">
+          <div><label for="v-lote">Lote</label><select id="v-lote" required></select></div>
+          <div><label for="v-fecha" id="v-fecha-l">Fecha de la venta</label><input id="v-fecha" type="date" required></div>
+          <div class="full">
+            <label>Cliente</label>
+            <div class="seg"><button type="button" data-cli="nuevo" aria-pressed="true">Cliente nuevo</button><button type="button" data-cli="existe" aria-pressed="false">Ya registrado</button></div>
+          </div>
+          <div class="full" id="cli-existe" hidden><select id="v-cliente"></select></div>
+          <div id="cli-nuevo-1"><label for="c-nombre">Nombre completo</label><input id="c-nombre"></div>
+          <div id="cli-nuevo-2"><label for="c-dui">DUI</label><input id="c-dui" placeholder="00000000-0"></div>
+          <div id="cli-nuevo-3"><label for="c-tel">Teléfono</label><input id="c-tel" inputmode="tel"></div>
+          <div id="v-contrato-w"><label for="v-contrato">No. de contrato</label><input id="v-contrato" placeholder="Vacío = SN-lote"></div>
+          <div class="full">
+            <label>Tipo</label>
+            <div class="seg"><button type="button" data-tipo="Crédito" aria-pressed="true">Crédito</button><button type="button" data-tipo="Contado" aria-pressed="false">Contado</button><button type="button" data-tipo="Reserva" aria-pressed="false">Solo reserva</button></div>
+          </div>
+          <div class="full" id="v-reserva-h" hidden><div class="alert warn"><b>Solo reserva</b>Se aparta el lote y se guarda el dinero de la reserva. No se hace contrato ni plan de pagos; eso se completa después en "Editar contrato".</div></div>
+          <div><label for="v-precio">Precio pactado ($)</label><input id="v-precio" class="num" inputmode="decimal" required><div class="hint" id="v-precio-h"></div></div>
+          <div><label for="v-monto" id="v-monto-l">Prima ($)</label><input id="v-monto" class="num" inputmode="decimal"><div class="hint" id="v-monto-h"></div></div>
+          <div><label for="v-forma">Forma de pago</label><select id="v-forma"><option>Efectivo</option><option>Transferencia</option><option>Depósito bancario</option><option>Cheque</option></select></div>
+          <div><label for="v-recibo">No. de recibo</label><input id="v-recibo" placeholder="Opcional"></div>
+          <div class="cred"><label for="v-plazo">Plazo</label><select id="v-plazo"></select></div>
+          <div class="cred"><label for="v-f1">Primera cuota</label><input id="v-f1" type="date"></div>
+          <div class="full"><label for="v-obs">Observaciones</label><input id="v-obs"></div>
+        </div>
+        <div class="alerts" id="v-alerts"></div>
+        <div class="sumbox" id="v-resumen"></div>
+        <button class="btn" type="submit" id="v-guardar">Guardar venta</button>
+      </form>
+    </section>
+
+    <!-- USUARIOS -->
+    <section data-view="usuarios" hidden>
+      <div class="card">
+        <h2>Usuarios</h2>
+        <p class="muted">Para agregar a alguien: pídale que abra la aplicación y toque "Crear cuenta nueva"; luego aquí le asigna el rol.</p>
+        <div class="tablewrap"><table id="t-usuarios"></table></div>
+        <dl class="roles">
+          <dt>admin</dt><dd>Todo: ventas, reservas, pagos, correcciones y usuarios.</dd>
+          <dt>ventas</dt><dd>Cotiza, registra ventas, clientes, primas y reservas (también reservas sin contrato). Si se marca "También cobra cuotas", registra además las cuotas mensuales.</dd>
+          <dt>cobros</dt><dd>Registra pagos de cuotas. Ve todo.</dd>
+          <dt>pendiente</dt><dd>Sin acceso.</dd>
+        </dl>
+      </div>
+      <div class="card">
+        <h2>Datos de la lotificación</h2>
+        <p class="muted">Aparecen en la pantalla de entrada, el encabezado, los recibos, los mensajes de WhatsApp y el Excel.</p>
+        <form id="f-ajustes" autocomplete="off">
+          <div class="fields">
+            <div class="full"><label for="aj-nombre">Nombre completo</label><input id="aj-nombre" required placeholder="Lotificación Las Palmeras"></div>
+            <div><label for="aj-corto">Nombre corto (encabezado)</label><input id="aj-corto" placeholder="Las Palmeras"></div>
+            <div><label for="aj-ubic">Ubicación</label><input id="aj-ubic" placeholder="Municipio, departamento"></div>
+            <div><label for="aj-tel">Teléfono(s) de contacto</label><input id="aj-tel" inputmode="tel" placeholder="7000-0000 / 2200-0000"></div>
+          </div>
+          <button class="btn" type="submit" id="aj-guardar">Guardar datos</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Plantilla del Excel de control</h2>
+        <p class="muted">El botón "Excel de control" (pestaña Ventas) llena esta plantilla con todos los datos de la aplicación. Solo hay que subirla una vez, o de nuevo si se cambia el diseño del libro.</p>
+        <p id="plantilla-estado" class="hint"></p>
+        <div class="toolbar">
+          <input id="plantilla-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="width:auto;flex:1 1 220px">
+          <button class="btn sm" type="button" id="plantilla-subir">Subir plantilla</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog id="dlg"><div id="dlg-body"></div></dialog>
+<div id="toast" class="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="calc.js"></script>
+<script src="mapa.js"></script>
+<script src="excel.js"></script>
+<script src="control.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
